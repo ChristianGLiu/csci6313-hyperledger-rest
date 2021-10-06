@@ -1,14 +1,14 @@
 {
     "name": "asset-transfer-basic",
     "version": "1.0.0",
-    "description": "Asset-transfer-basic application implemented in JavaScript",
+    "private": true,
+    "description": "A supplementary project for actor-fsm-model",
     "engines": {
         "node": ">=12",
         "npm": ">=5"
     },
     "engineStrict": true,
-    "author": "Hyperledger",
-    "license": "Apache-2.0",
+    "author": "Christian Gang Liu",
     "dependencies": {
         "fabric-ca-client": "2.2.2",
         "fabric-network": "2.2.2",
