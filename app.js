@@ -28,7 +28,7 @@ const admindisplayname = 'actorfsmmodel Admin'
 const adminUserId = 'admin';
 const adminUserPasswd = 'adminpw';
 
-const walletPath = path.join(__dirname, 'actorfsmmodel');
+const walletPath = path.join(__dirname, 'Org1');
 
 const channelName = 'mychannel';
 const chaincodeName = 'basic';
@@ -41,7 +41,7 @@ const url = require('url');
 
 
 const host = '0.0.0.0';
-const port = 8000;
+const port = 8952;
 
 let completeProfile = '';
 
@@ -69,7 +69,7 @@ curl http://noodlenami.com:28080/ak/api/v1/components | jq '.[] | select(.type =
 
  */
 
-let identity = 'actorfsmmodel Admin'
+let identity = 'Org1 Admin'
 let networkConnections = {}
 let gateway = null
 let network = null
@@ -112,80 +112,78 @@ async function initializeHyperledgerNetowrk() {
 	}
 }
 
-async function initializeHyperledgerContract(actorname) {
+async function initializeHyperledgerContract() {
 	try {
 		// build an in memory object with the network configuration (also known as a connection profile)
 		// const ccp = AppUtil.buildJunglekidsOrg1();
 
 		// Build a network instance based on the channel where the smart contract is deployed
 		console.log("Build a network instance based on the channel where the smart contract is deployed")
-		network = await gateway.getNetwork(actorname);
+		network = await gateway.getNetwork('channel1');
 
 		// Get the contract from the network.
 		console.log("Get the contract from the network.", network)
-		contract = network.getContract(actorname);
+		contract = network.getContract('nonPrivateData');
 
-		console.log('\n--> Submit Transaction: InitLedger, function creates the initial set of assets on the ledger');
-		await contract.submitTransaction('InitLedger', actorname);
-		console.log('*** Result: committed');
+		// console.log('\n--> Submit Transaction: InitLedger, function creates the initial set of assets on the ledger');
+		// await contract.submitTransaction('InitLedger', 'nonPrivateData');
+		// console.log('*** Result: committed');
 
-		networkConnections[actorname] = contract;
+		networkConnections['nonPrivateData'] = contract;
 		return contract;
 	} catch (error) {
 		console.error(`******** getHyperledgerGateway: ${error}`);
 	}
 }
 
-function shutdownHyperledgerContract(actorname) {
-	// this.gateway.disconnect();
-	networkConnections[actorname] = null;
-}
-
-async function getActorConnection(actor) {
-	if (!networkConnections[actor]) {
-		await initializeHyperledgerContract(actor)
+async function getActorConnection() {
+	if (!networkConnections['nonPrivateData']) {
+		await initializeHyperledgerContract()
 	}
-	return networkConnections[actor]
-	// return	await initializeHyperledgerContract(actor)
-	// return contract
+	return networkConnections['nonPrivateData']
 }
 
-async function deleteAsset(actor, id) {
-	console.log('\n--> Evaluate Transaction: DeleteAsset, function returns "true" if an asset with given assetID exist');
-	let contract = await getActorConnection(actor)
-
-	let result = await contract.submitTransaction('DeleteAsset', id);
+async function createAsset(id, value) {
+	console.log('\n--> Evaluate Transaction: createAsset, function returns "true" if an asset with given assetID exist');
+	let contract = await getActorConnection()
+	let result = await contract.submitTransaction('createMyAsset', id, value);
 	console.log(`*** Result: ${prettyJSONString(result.toString())}`);
 	return result;
 }
 
-async function createOrUpdateGloableAsset(actor, id, newstate) {
-	console.log('\n--> Submit Transaction:     async CreateOrUpdateGloableAsset(ctx, txid, activestate) {					');
-	let contract = await getActorConnection(actor)
-
-	let result = await contract.submitTransaction('CreateOrUpdateGloableAsset', id, newstate);
-	console.log('*** Result: CreateOrUpdateGloableAsset');
-	if (`${result}` !== '') {
-		console.log(`*** Result: ${prettyJSONString(result.toString())}`);
-	}
+async function updateAsset(id, value) {
+	console.log('\n--> Evaluate Transaction: updateMyAsset, function returns "true" if an asset with given assetID exist');
+	let contract = await getActorConnection()
+	let result = await contract.evaluateTransaction('updateMyAsset', id, value);
+	console.log(`*** Result: ${submitTransaction(result.toString())}`);
 	return result;
 }
 
-async function getAllAssets(actor) {
+async function readAsset(id) {
+	console.log('\n--> Evaluate Transaction: ReadAsset, function returns "asset1" attributes');
+	let contract = await getActorConnection()
+	let result = await contract.evaluateTransaction('readMyAsset', id);
+	console.log(`*** Result: ${prettyJSONString(result.toString())}`);
+	return result;
+}
+
+async function deleteAsset(id) {
+	console.log('\n--> Evaluate Transaction: DeleteAsset, function returns "true" if an asset with given assetID exist');
+	let contract = await getActorConnection()
+
+	let result = await contract.submitTransaction('deleteMyAsset', id);
+	console.log(`*** Result: ${prettyJSONString(result.toString())}`);
+	return result;
+}
+
+async function getAllAssets() {
 	console.log('\n--> Evaluate Transaction: GetAllAssets, function returns all the current assets on the ledger');
 	let contract = await getActorConnection(actor)
-	console.log('get ' + actor + ' contract', contract)
 	let result = await contract.evaluateTransaction('GetAllAssets');
 	return result;
 }
 
-async function readAsset(actor, id) {
-	console.log('\n--> Evaluate Transaction: ReadAsset, function returns "asset1" attributes');
-	let contract = await getActorConnection(actor)
-	let result = await contract.evaluateTransaction('ReadAsset', id);
-	console.log(`*** Result: ${prettyJSONString(result.toString())}`);
-	return result;
-}
+
 
 const requestListener = async function (req, res) {
 
@@ -200,11 +198,6 @@ const requestListener = async function (req, res) {
 		res.end('{error: username or passowrd is not correct.}');
 		return;
 	}
-	if (!queryObject.actor) {
-		res.writeHead(400);
-		res.end('{error: actor is not specified.}');
-		return;
-	}
 
 	console.log("req.url:", req.url)
 
@@ -213,29 +206,37 @@ const requestListener = async function (req, res) {
 	let txid = ''
 	let newstate = ''
 	let actor = queryObject.actor
+	let ipfs = ''
 	res.setHeader("Content-Type", "application/json");
 
 	if (req.url.startsWith("/read")) {
-		id = queryObject.id
-		result = await readAsset(actor, id)
+		txid = queryObject.txid
+		result = await readAsset(txid)
 		res.writeHead(200);
 		res.end(result);
 	} else if (req.url.startsWith("/update")) {
 		newstate = queryObject.newstate
 		txid = queryObject.txid
-		result = await createOrUpdateGloableAsset(actor, txid, newstate)
+		result = await updateAsset(txid, newstate)
 		res.writeHead(200);
 		res.end(result);
 
-	} else if (req.url.startsWith("/delete")) {
-		id = queryObject.id
-		result = await deleteAsset(actor, id)
+	} else if (req.url.startsWith("/create")) {
+		newstate = queryObject.newstate
+		txid = queryObject.txid
+		result = await createAsset(txid, newstate)
 		res.writeHead(200);
 		res.end(result);
 
-	}else {
+	}else if (req.url.startsWith("/delete")) {
+		txid = queryObject.txid
+		result = await deleteAsset(txid)
 		res.writeHead(200);
-		result = await getAllAssets(actor)
+		res.end(result);
+
+	}else  {
+		res.writeHead(200);
+		result = await getAllAssets()
 		res.end(result);
 	}
 
@@ -245,10 +246,5 @@ const server = http.createServer(requestListener);
 server.listen(port, host, async () => {
 
 	await initializeHyperledgerNetowrk();
-	await initializeHyperledgerContract('seller')
-	await initializeHyperledgerContract('buyer')
-	await initializeHyperledgerContract('shippingcompany')
-	await initializeHyperledgerContract('partial')
-	await initializeHyperledgerContract('mainchainonly')
 	console.log(`Server is running on http://${host}:${port}`);
 });
