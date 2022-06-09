@@ -20,20 +20,8 @@ const { buildCCPOrg1, buildWallet } = require('./lib/AppUtil.js');
 // const mspOrg1 = 'Org1MSP';
 // const walletPath = path.join(__dirname, 'wallet');
 // const org1UserId = 'appUser';
-const caname = 'actorfsmmodelca'
-const orgname = 'Org1MSP'
-const actorname = 'mainchainonly'
-const adminname = 'admin'
-const admindisplayname = 'actorfsmmodel Admin'
-const adminUserId = 'admin';
-const adminUserPasswd = 'adminpw';
 
 const walletPath = path.join(__dirname, 'Org1');
-
-const channelName = 'mychannel';
-const chaincodeName = 'basic';
-const mspOrg1 = 'Org1MSP';
-const org1UserId = 'appUser';
 
 // http server config
 const http = require("http");
@@ -146,40 +134,59 @@ async function getActorConnection() {
 async function createAsset(id, value) {
 	console.log('\n--> Evaluate Transaction: createAsset, function returns "true" if an asset with given assetID exist');
 	let contract = await getActorConnection()
-	let result = await contract.submitTransaction('createMyAsset', id, value);
-	console.log(`*** Result: ${prettyJSONString(result.toString())}`);
+	let result = '';
+	try {
+		await contract.submitTransaction('createMyAsset', id, value);
+		result = "asset " + id + " was successfully created!";
+	}
+	catch (e) {
+		result = e.message;
+	}
+	console.log(`*** Result: ${result}`);
 	return result;
 }
 
 async function updateAsset(id, value) {
 	console.log('\n--> Evaluate Transaction: updateMyAsset, function returns "true" if an asset with given assetID exist');
 	let contract = await getActorConnection()
-	let result = await contract.evaluateTransaction('updateMyAsset', id, value);
-	console.log(`*** Result: ${submitTransaction(result.toString())}`);
+	let result = '';
+	try {
+		await contract.submitTransaction('updateMyAsset', id, value);
+		result = "asset " + id + " was successfully updated!";
+	}
+	catch (e) {
+		result = e.message;
+	}
+	console.log(`*** Result: ${result}`);
 	return result;
 }
 
 async function readAsset(id) {
 	console.log('\n--> Evaluate Transaction: ReadAsset, function returns "asset1" attributes');
 	let contract = await getActorConnection()
-	let result = await contract.evaluateTransaction('readMyAsset', id);
-	console.log(`*** Result: ${prettyJSONString(result.toString())}`);
+	let result = '';
+	try {
+		result = await contract.evaluateTransaction('readMyAsset', id);
+	}
+	catch (e) {
+		result = e.message;
+	}
+	console.log(`*** Result: ${result}`);
 	return result;
 }
 
 async function deleteAsset(id) {
 	console.log('\n--> Evaluate Transaction: DeleteAsset, function returns "true" if an asset with given assetID exist');
 	let contract = await getActorConnection()
-
-	let result = await contract.submitTransaction('deleteMyAsset', id);
-	console.log(`*** Result: ${prettyJSONString(result.toString())}`);
-	return result;
-}
-
-async function getAllAssets() {
-	console.log('\n--> Evaluate Transaction: GetAllAssets, function returns all the current assets on the ledger');
-	let contract = await getActorConnection(actor)
-	let result = await contract.evaluateTransaction('GetAllAssets');
+	let result = '';
+	try {
+		await contract.submitTransaction('deleteMyAsset', id);
+		result = "asset " + id + " was successfully deleted!";
+	}
+	catch (e) {
+		result = e.message;
+	}
+	console.log(`*** Result: ${result}`);
 	return result;
 }
 
@@ -188,56 +195,42 @@ async function getAllAssets() {
 const requestListener = async function (req, res) {
 
 	const queryObject = url.parse(req.url, true).query;
-	if (!queryObject || !queryObject.username || !queryObject.password) {
-		res.writeHead(400);
-		res.end('{error: no username or passowrd}');
-		return;
-	}
-	if (queryObject.username != adminUserId || queryObject.password != adminUserPasswd) {
-		res.writeHead(400);
-		res.end('{error: username or passowrd is not correct.}');
-		return;
-	}
 
 	console.log("req.url:", req.url)
 
 	let result = ''
 	let id = ''
-	let txid = ''
-	let newstate = ''
-	let actor = queryObject.actor
-	let ipfs = ''
+	let value = ''
 	res.setHeader("Content-Type", "application/json");
 
 	if (req.url.startsWith("/read")) {
-		txid = queryObject.txid
-		result = await readAsset(txid)
+		id = queryObject.id
+		result = await readAsset(id)
 		res.writeHead(200);
 		res.end(result);
 	} else if (req.url.startsWith("/update")) {
-		newstate = queryObject.newstate
-		txid = queryObject.txid
-		result = await updateAsset(txid, newstate)
+		value = queryObject.value
+		id = queryObject.id
+		result = await updateAsset(id, value)
 		res.writeHead(200);
 		res.end(result);
 
 	} else if (req.url.startsWith("/create")) {
-		newstate = queryObject.newstate
-		txid = queryObject.txid
-		result = await createAsset(txid, newstate)
+		value = queryObject.value
+		id = queryObject.id
+		result = await createAsset(id, value)
 		res.writeHead(200);
 		res.end(result);
 
-	}else if (req.url.startsWith("/delete")) {
-		txid = queryObject.txid
-		result = await deleteAsset(txid)
+	} else if (req.url.startsWith("/delete")) {
+		id = queryObject.id
+		result = await deleteAsset(id)
 		res.writeHead(200);
 		res.end(result);
 
-	}else  {
+	} else {
 		res.writeHead(200);
-		result = await getAllAssets()
-		res.end(result);
+		res.end("please specify create, update, read or delete operation...");
 	}
 
 };
